@@ -14,6 +14,16 @@ An advanced document comparison tool that leverages semantic analysis and AI to 
 - **Change Impact Classification**: Categorize changes by impact level and type
 - **Fallback Mechanisms**: Robust error handling with simplified analysis when AI services are unavailable
 
+## Interface Overview
+
+### Home / Upload Page
+
+![Index Page](index.png)
+
+### Diff View
+
+![Comparison Page](comparison.png)
+
 ## Technology Stack
 
 - **Backend**: Flask (Python web framework)
