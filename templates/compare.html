@@ -1,0 +1,632 @@
+{% extends "base.html" %}
+
+{% block title %}Compare Documents - Diff-Policy Navigator{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Header -->
+        <div class="text-center mb-4">
+            <h1 class="display-5 fw-bold">
+                <i class="fas fa-balance-scale text-primary me-3"></i>
+                Document Comparison
+            </h1>
+            <p class="lead text-muted">Compare policy documents and analyze changes</p>
+        </div>
+
+        {% if not comparison_result %}
+        <!-- Document Selection Form -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-file-contract me-2"></i>
+                    Select Documents to Compare
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if documents|length < 2 %}
+                <div class="alert alert-warning" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    You need at least 2 uploaded documents to perform a comparison. 
+                    <a href="{{ url_for('index') }}" class="alert-link">Upload more documents</a>.
+                </div>
+                {% else %}
+                <form action="{{ url_for('compare_documents') }}" method="post" class="needs-validation" novalidate>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="document1" class="form-label">First Document</label>
+                            <select class="form-select" id="document1" name="document1" required>
+                                <option value="">Choose document...</option>
+                                {% for doc in documents %}
+                                <option value="{{ doc.id }}">{{ doc.title }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select the first document.</div>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="document2" class="form-label">Second Document</label>
+                            <select class="form-select" id="document2" name="document2" required>
+                                <option value="">Choose document...</option>
+                                {% for doc in documents %}
+                                <option value="{{ doc.id }}">{{ doc.title }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select the second document.</div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-compare me-2"></i>
+                            Compare Documents
+                        </button>
+                    </div>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+        <!-- Comparison Results -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100 border-primary">
+                    <div class="card-header bg-primary text-white">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-file-alt me-2"></i>
+                            {{ doc1.title }}
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ doc1.upload_time.strftime('%B %d, %Y') }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card h-100 border-success">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="card-title mb-0">
+                            <i class="fas fa-file-alt me-2"></i>
+                            {{ doc2.title }}
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <small class="text-muted">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ doc2.upload_time.strftime('%B %d, %Y') }}
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Overall Summary -->
+        {% if summary %}
+        <div class="card mb-4 border-info">
+            <div class="card-header bg-info text-dark">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-clipboard-list me-2"></i>
+                    Executive Summary
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="summary-content">{{ summary|safe }}</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Statistics Dashboard -->
+        {% if comparison_result.statistics %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Change Statistics
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-box">
+                            <div class="h2 mb-0 text-success">{{ comparison_result.statistics.unchanged or 0 }}</div>
+                            <small class="text-muted">Unchanged</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-box">
+                            <div class="h2 mb-0 text-warning">{{ comparison_result.statistics.modified or 0 }}</div>
+                            <small class="text-muted">Modified</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-box">
+                            <div class="h2 mb-0 text-info">{{ comparison_result.statistics.added or 0 }}</div>
+                            <small class="text-muted">Added</small>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="stat-box">
+                            <div class="h2 mb-0 text-danger">{{ comparison_result.statistics.removed or 0 }}</div>
+                            <small class="text-muted">Removed</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Structured Analysis Tabs -->
+        {% if structured_comparison %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="analysisTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="summary-tab" data-bs-toggle="tab" data-bs-target="#summary-pane" type="button" role="tab">
+                            <i class="fas fa-clipboard-list me-1"></i>Summary Comparison
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="definitions-tab" data-bs-toggle="tab" data-bs-target="#definitions-pane" type="button" role="tab">
+                            <i class="fas fa-book me-1"></i>Definitions
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="requirements-tab" data-bs-toggle="tab" data-bs-target="#requirements-pane" type="button" role="tab">
+                            <i class="fas fa-exclamation-circle me-1"></i>Requirements
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="actions-tab" data-bs-toggle="tab" data-bs-target="#actions-pane" type="button" role="tab">
+                            <i class="fas fa-tasks me-1"></i>Actions
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="deadlines-tab" data-bs-toggle="tab" data-bs-target="#deadlines-pane" type="button" role="tab">
+                            <i class="fas fa-clock me-1"></i>Deadlines
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="analysisTabContent">
+                    <!-- Summary Comparison -->
+                    <div class="tab-pane fade show active" id="summary-pane" role="tabpanel">
+                        {% if structured_comparison.summary_comparison %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">{{ doc1.title }} Summary</h6>
+                                <div class="border rounded p-3 mb-3">
+                                    {{ doc1.summary or "No summary available" }}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success">{{ doc2.title }} Summary</h6>
+                                <div class="border rounded p-3 mb-3">
+                                    {{ doc2.summary or "No summary available" }}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="alert alert-info">
+                            <h6 class="text-dark"><i class="fas fa-analyze me-2"></i>Summary Analysis</h6>
+                            <div class="text-dark">{{ structured_comparison.summary_comparison.comparison_text }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Definitions Comparison -->
+                    <div class="tab-pane fade" id="definitions-pane" role="tabpanel">
+                        {% if structured_comparison.definitions_comparison %}
+                        {% set def_comp = structured_comparison.definitions_comparison %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 mb-0 text-primary">{{ def_comp.total_doc1 }}</div>
+                                    <small class="text-muted">{{ doc1.title }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 mb-0 text-success">{{ def_comp.total_doc2 }}</div>
+                                    <small class="text-muted">{{ doc2.title }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center">
+                                    <div class="h4 mb-0 text-info">{{ def_comp.matched_definitions|length }}</div>
+                                    <small class="text-muted">Matched</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Matched Definitions -->
+                        {% if def_comp.matched_definitions %}
+                        <h6>Matched Definitions</h6>
+                        {% for match in def_comp.matched_definitions %}
+                        <div class="card mb-2 {% if match.changed %}border-warning{% else %}border-success{% endif %}">
+                            <div class="card-header py-2">
+                                <strong>{{ match.term }}</strong>
+                                {% if match.changed %}
+                                <span class="badge bg-warning text-dark ms-2">Modified</span>
+                                {% else %}
+                                <span class="badge bg-success ms-2">Unchanged</span>
+                                {% endif %}
+                            </div>
+                            {% if match.changed %}
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Previous:</small>
+                                        <div>{{ match.old_definition }}</div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <small class="text-muted">Current:</small>
+                                        <div>{{ match.new_definition }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <!-- Added Definitions -->
+                        {% if def_comp.added_definitions %}
+                        <h6 class="mt-4">New Definitions</h6>
+                        {% for defn in def_comp.added_definitions %}
+                        <div class="card mb-2 border-success">
+                            <div class="card-header py-2 bg-success text-dark">
+                                <strong>{{ defn.term }}</strong>
+                                <span class="badge bg-light text-success ms-2">Added</span>
+                            </div>
+                            <div class="card-body">
+                                {{ defn.definition }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <!-- Removed Definitions -->
+                        {% if def_comp.removed_definitions %}
+                        <h6 class="mt-4">Removed Definitions</h6>
+                        {% for defn in def_comp.removed_definitions %}
+                        <div class="card mb-2 border-danger">
+                            <div class="card-header py-2 bg-danger text-dark">
+                                <strong>{{ defn.term }}</strong>
+                                <span class="badge bg-light text-danger ms-2">Removed</span>
+                            </div>
+                            <div class="card-body">
+                                {{ defn.definition }}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Requirements Comparison -->
+                    <div class="tab-pane fade" id="requirements-pane" role="tabpanel">
+                        {% if structured_comparison.requirements_comparison %}
+                        {% set req_comp = structured_comparison.requirements_comparison %}
+                        
+                        <div class="alert alert-info">
+                            <div class="text-dark">{{ req_comp.change_summary }}</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">{{ doc1.title }} Requirements</h6>
+                                {% for req in req_comp.doc1_requirements %}
+                                <div class="card mb-2">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ req.requirement[:100] }}{% if req.requirement|length > 100 %}...{% endif %}</span>
+                                            <span class="badge bg-{{ 'danger' if req.priority == 'high' else 'warning' if req.priority == 'medium' else 'info' }}">
+                                                {{ req.priority|title }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">Applies to: {{ req.applies_to }}</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success">{{ doc2.title }} Requirements</h6>
+                                {% for req in req_comp.doc2_requirements %}
+                                <div class="card mb-2">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between">
+                                            <span>{{ req.requirement[:100] }}{% if req.requirement|length > 100 %}...{% endif %}</span>
+                                            <span class="badge bg-{{ 'danger' if req.priority == 'high' else 'warning' if req.priority == 'medium' else 'info' }}">
+                                                {{ req.priority|title }}
+                                            </span>
+                                        </div>
+                                        <small class="text-muted">Applies to: {{ req.applies_to }}</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Actions Comparison -->
+                    <div class="tab-pane fade" id="actions-pane" role="tabpanel">
+                        {% if structured_comparison.actions_comparison %}
+                        {% set action_comp = structured_comparison.actions_comparison %}
+                        
+                        <div class="alert alert-info">
+                            <div class="text-dark">{{ action_comp.change_summary }}</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">{{ doc1.title }} Actions</h6>
+                                {% for action in action_comp.doc1_actions %}
+                                <div class="card mb-2">
+                                    <div class="card-body py-2">
+                                        <strong>{{ action.action[:80] }}{% if action.action|length > 80 %}...{% endif %}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ action.responsible_party }}
+                                            <i class="fas fa-clock ms-2 me-1"></i>{{ action.timeline }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success">{{ doc2.title }} Actions</h6>
+                                {% for action in action_comp.doc2_actions %}
+                                <div class="card mb-2">
+                                    <div class="card-body py-2">
+                                        <strong>{{ action.action[:80] }}{% if action.action|length > 80 %}...{% endif %}</strong>
+                                        <br>
+                                        <small class="text-muted">
+                                            <i class="fas fa-user me-1"></i>{{ action.responsible_party }}
+                                            <i class="fas fa-clock ms-2 me-1"></i>{{ action.timeline }}
+                                        </small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Deadlines Comparison -->
+                    <div class="tab-pane fade" id="deadlines-pane" role="tabpanel">
+                        {% if structured_comparison.deadlines_comparison %}
+                        {% set deadline_comp = structured_comparison.deadlines_comparison %}
+                        
+                        <div class="alert alert-info">
+                            <div class="text-dark">{{ deadline_comp.change_summary }}</div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="text-primary">{{ doc1.title }} Deadlines</h6>
+                                {% for deadline in deadline_comp.doc1_deadlines %}
+                                <div class="card mb-2 border-primary">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ deadline.deadline }}</strong>
+                                                <br>
+                                                <span>{{ deadline.description }}</span>
+                                            </div>
+                                        </div>
+                                        {% if deadline.consequence != "Not specified" %}
+                                        <small class="text-muted">Consequence: {{ deadline.consequence }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-success">{{ doc2.title }} Deadlines</h6>
+                                {% for deadline in deadline_comp.doc2_deadlines %}
+                                <div class="card mb-2 border-success">
+                                    <div class="card-body py-2">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong>{{ deadline.deadline }}</strong>
+                                                <br>
+                                                <span>{{ deadline.description }}</span>
+                                            </div>
+                                        </div>
+                                        {% if deadline.consequence != "Not specified" %}
+                                        <small class="text-muted">Consequence: {{ deadline.consequence }}</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- View Toggle -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3>Section Analysis</h3>
+            <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="viewMode" id="summaryView" checked>
+                <label class="btn btn-outline-primary" for="summaryView">
+                    <i class="fas fa-list me-1"></i>Summary View
+                </label>
+                
+                <input type="radio" class="btn-check" name="viewMode" id="detailView">
+                <label class="btn btn-outline-primary" for="detailView">
+                    <i class="fas fa-code me-1"></i>Detailed Diff
+                </label>
+            </div>
+        </div>
+
+        <!-- Section Comparisons -->
+        {% for section in comparison_result.sections %}
+        <div class="card mb-3 section-card" data-change-type="{{ section.change_type }}">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="card-title mb-0">
+                    {% if section.change_type == 'added' %}
+                        <span class="badge bg-success me-2">ADDED</span>
+                        <i class="fas fa-plus me-1"></i>
+                        {{ section.title2 or "New Section" }}
+                    {% elif section.change_type == 'removed' %}
+                        <span class="badge bg-danger me-2">REMOVED</span>
+                        <i class="fas fa-minus me-1"></i>
+                        {{ section.title1 or "Removed Section" }}
+                    {% elif section.change_type == 'modified' %}
+                        <span class="badge bg-warning me-2">MODIFIED</span>
+                        <i class="fas fa-edit me-1"></i>
+                        {{ section.title1 or section.title2 or "Modified Section" }}
+                    {% else %}
+                        <span class="badge bg-secondary me-2">UNCHANGED</span>
+                        <i class="fas fa-check me-1"></i>
+                        {{ section.title1 or section.title2 or "Unchanged Section" }}
+                    {% endif %}
+                </h6>
+                
+                {% if section.impact_analysis and section.impact_analysis.impact_level %}
+                <div>
+                    {% set impact = section.impact_analysis.impact_level %}
+                    {% if impact == 'high' %}
+                        <span class="badge bg-danger">High Impact</span>
+                    {% elif impact == 'medium' %}
+                        <span class="badge bg-warning">Medium Impact</span>
+                    {% elif impact == 'low' %}
+                        <span class="badge bg-info">Low Impact</span>
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="card-body">
+                <!-- Summary View -->
+                <div class="summary-view">
+                    {% if section.summary %}
+                    <div class="summary-text p-3 border rounded mb-3">
+                        <strong class="text-dark">Analysis:</strong> <span class="text-dark">{{ section.summary }}</span>
+                    </div>
+                    {% endif %}
+                    
+                    {% if section.impact_analysis and section.impact_analysis.stakeholder_impact %}
+                    <div class="impact-analysis p-3 border rounded">
+                        <strong class="text-dark">Impact:</strong> <span class="text-dark">{{ section.impact_analysis.stakeholder_impact }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Detailed View -->
+                <div class="detail-view" style="display: none;">
+                    {% if section.change_type == 'matched' or section.change_type == 'modified' %}
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">Original Version</h6>
+                            <div class="content-box border rounded p-3">
+                                {{ section.content1[:500] }}
+                                {% if section.content1|length > 500 %}...{% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">Updated Version</h6>
+                            <div class="content-box border rounded p-3">
+                                {{ section.content2[:500] }}
+                                {% if section.content2|length > 500 %}...{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% elif section.change_type == 'added' %}
+                    <div class="added-content border border-success rounded p-3">
+                        <h6 class="text-success">New Content</h6>
+                        {{ section.content2[:1000] }}
+                        {% if section.content2|length > 1000 %}...{% endif %}
+                    </div>
+                    {% elif section.change_type == 'removed' %}
+                    <div class="removed-content border border-danger rounded p-3">
+                        <h6 class="text-danger">Removed Content</h6>
+                        {{ section.content1[:1000] }}
+                        {% if section.content1|length > 1000 %}...{% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    {% if section.diff_html %}
+                    <div class="mt-3">
+                        <h6>Detailed Changes</h6>
+                        <div class="diff-content border rounded p-3">
+                            {{ section.diff_html|safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Back to Selection -->
+        <div class="text-center mt-4">
+            <a href="{{ url_for('compare_form') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-2"></i>
+                Compare Different Documents
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// View mode toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const summaryViewBtn = document.getElementById('summaryView');
+    const detailViewBtn = document.getElementById('detailView');
+    const summaryViews = document.querySelectorAll('.summary-view');
+    const detailViews = document.querySelectorAll('.detail-view');
+    
+    if (summaryViewBtn && detailViewBtn) {
+        summaryViewBtn.addEventListener('change', function() {
+            if (this.checked) {
+                summaryViews.forEach(view => view.style.display = 'block');
+                detailViews.forEach(view => view.style.display = 'none');
+            }
+        });
+        
+        detailViewBtn.addEventListener('change', function() {
+            if (this.checked) {
+                summaryViews.forEach(view => view.style.display = 'none');
+                detailViews.forEach(view => view.style.display = 'block');
+            }
+        });
+    }
+    
+    // Form validation for document selection
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(event) {
+            const doc1 = document.getElementById('document1').value;
+            const doc2 = document.getElementById('document2').value;
+            
+            if (doc1 === doc2 && doc1 !== '') {
+                event.preventDefault();
+                alert('Please select two different documents to compare.');
+                return false;
+            }
+            
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            form.classList.add('was-validated');
+        });
+    }
+});
+</script>
+{% endblock %}
